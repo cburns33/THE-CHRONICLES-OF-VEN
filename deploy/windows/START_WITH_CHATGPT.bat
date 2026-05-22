@@ -28,7 +28,7 @@ echo  Do NOT close the ngrok window while he is using it.
 echo.
 
 REM ── Replace the domain below with your actual ngrok static domain ──────────
-set NGROK_DOMAIN=YOUR_STATIC_DOMAIN.ngrok-free.app
+set NGROK_DOMAIN=tarot-seltzer-ought.ngrok-free.dev
 
 start "ngrok tunnel" cmd /k "ngrok http 8000 --domain=%NGROK_DOMAIN%"
 

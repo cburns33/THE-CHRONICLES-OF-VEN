@@ -99,7 +99,7 @@ This is what lets the GPT actually search your documents.
 3. Click **Import from URL**
 4. Paste this URL exactly as written:
    ```
-   CHASE_WILL_FILL_THIS_IN
+   https://tarot-seltzer-ought.ngrok-free.dev/openapi.json
    ```
 5. Click **Import**
 6. You should see two items appear: `ask` and `entity`
