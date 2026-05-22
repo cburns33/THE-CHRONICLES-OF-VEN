@@ -18,7 +18,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import argparse
-import shutil
 
 from src.utils.config import load_config
 from src.utils.logging import get_logger
@@ -29,8 +28,14 @@ from src.processing.chunker import chunk_all_chapters
 from src.processing.metadata_extractor import enrich_chunks
 from src.processing.entity_extractor import enrich_chunks_with_entities
 from src.indexing.embedder import embed_chunks
-from src.indexing.vector_store import upsert_chunks, collection_stats, _get_client
-from src.indexing.sqlite_store import init_db, upsert_chapter, upsert_entities_for_chunk
+from src.indexing.vector_store import upsert_chunks, collection_stats, _get_client, COLLECTION_NAME
+from src.indexing.sqlite_store import (
+    init_db,
+    upsert_chapter,
+    upsert_entities_for_chunk,
+    upsert_timeline_events,
+    upsert_cooccurrences,
+)
 from datetime import datetime, timezone
 
 log = get_logger("reindex")
@@ -53,11 +58,16 @@ def main():
 
     doc_id = cfg["google_docs"]["document_id"]
 
-    # Wipe ChromaDB
-    chroma_dir = Path(cfg["paths"]["chroma_dir"])
-    if chroma_dir.exists():
-        shutil.rmtree(chroma_dir)
-        log.info(f"Wiped ChromaDB at {chroma_dir}")
+    # Wipe ChromaDB — delete the collection via the client API to avoid
+    # filesystem lock issues (OneDrive or antivirus may hold file handles)
+    try:
+        client = _get_client()
+        existing = [c.name for c in client.list_collections()]
+        if COLLECTION_NAME in existing:
+            client.delete_collection(COLLECTION_NAME)
+            log.info(f"Deleted ChromaDB collection '{COLLECTION_NAME}'")
+    except Exception as e:
+        log.warning(f"Could not delete ChromaDB collection: {e}")
 
     # Wipe SQLite
     db_path = Path(cfg["paths"]["db_path"])
@@ -101,6 +111,8 @@ def main():
         )
         for chunk in ch_chunks:
             upsert_entities_for_chunk(chunk)
+            upsert_timeline_events(chunk, chunk.metadata.get("timeline_events", []))
+            upsert_cooccurrences(chunk, chunk.metadata.get("cooccurrences", []))
 
     # Reset state
     state = {

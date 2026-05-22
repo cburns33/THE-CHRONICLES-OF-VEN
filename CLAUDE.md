@@ -1,5 +1,7 @@
 # Inherited Cloud — Project Handoff
 
+> **For Claude:** At the start of any session involving code changes, read `TECHNICAL_REFERENCE.md` (function signatures, schemas, data flow) and `ROADMAP.md` (8-feature plan with per-phase checklists). Reading these two files replaces crawling the source files.
+
 ## What this is
 
 A semantic search and retrieval system for a fantasy novel manuscript. The author writes in Google Docs (using Tabs for chapters). This system indexes the manuscript and a corpus of old D&D campaign continuity documents, then serves semantic search via a Streamlit browser UI and a FastAPI endpoint for a Custom GPT.
@@ -9,18 +11,18 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 
 ---
 
-## Current state (as of 2026-05-21)
+## Current state (as of 2026-05-22) — Phases 1–3 complete
 
 ### What is fully working
 - Google Docs API sync (tabs-based — each tab = one chapter)
 - Full manuscript indexed: 9 chapters, 92 chunks
-- Continuity docs indexed: 9 files, 5,714 chunks (~5,800 total)
+- Continuity docs indexed: 9 files, 5,655 chunks (~5,747 total)
 - Semantic search via ChromaDB + OpenAI `text-embedding-3-small`
-- spaCy entity extraction (characters, places)
-- SQLite metadata store
-- Streamlit UI with source filter (Novel / Continuity / Worldbuilding / All)
-- Dark fantasy theme (Cinzel/Crimson Text fonts, gold/charcoal palette)
-- FastAPI `/ask` endpoint optimised for Custom GPT Actions
+- spaCy entity extraction (characters, places) + known-entity override list in `config.yaml`
+- SQLite metadata store with 5 tables: `chapters`, `entities`, `timeline_events`, `character_cooccurrences`, `narrative_states`
+- Streamlit multi-page UI: Search page + Story Health dashboard
+- Dark fantasy theme (Cinzel/Crimson Text fonts, gold/charcoal palette) — shared via `ui/theme.py`
+- FastAPI `/ask` endpoint with citation keys (`[C{n}-P{n}]`) for Custom GPT
 - Custom GPT system prompt + author setup guide
 - ngrok static domain locked in: `tarot-seltzer-ought.ngrok-free.dev`
 - Windows `.bat` launchers: `START_SEARCH.bat` and `START_WITH_CHATGPT.bat`
@@ -29,16 +31,26 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - "More like this" button on result cards
 - Character/place multiselect filters in UI
 - Last synced timestamp shown in sidebar
+- Multi-factor confidence scoring (`src/retrieval/scorer.py`) — cosine + entity overlap + source weight + narrative position
+- "Why this result?" expander on every search result card
+- Timeline events table with sequence hints and gap detection
+- Character co-occurrence table (which characters appear in the same chunk)
+- Narrative state snapshots: per-character, per-chapter cumulative view (populated on next reindex)
+- Story Health dashboard: metric cards, stacked character appearances chart (Plotly), styled chapter overview table
+- `known_lore` list in `config.yaml` catches world-specific common words used as proper nouns (e.g. "Working", "Workings", "Myth")
 
 ### What is NOT yet done
 - Windows Task Scheduler setup (auto-sync at 3am CT) — still manual for now
 - Continuity doc ingestion may need re-run when author locates more old files
+- Phase 4: Lore wiki (`wiki_entries` table, `wiki_builder.py`, `2_Lore_Wiki.py` page)
+- Narrative states table is empty until the next full reindex populates it
 
 ### Known issues / gotchas
 - `Ven Transcript Part 6.docx` was empty — skipped at ingestion, not a bug
 - Windows terminal (cp1252) cannot print some Unicode from the manuscript — fixed in `scripts/query.py` but raw `python -c` one-liners will still fail; use the scripts
 - ngrok free tier: the static domain (`tarot-seltzer-ought.ngrok-free.dev`) is permanent but ngrok must be running on Chase's machine for the Custom GPT to work
 - Background Bash tasks in Claude Code are slow to flush output — use `run_in_background=true` and wait for task-notification rather than polling
+- After adding new `known_characters`, `known_places`, `known_orgs`, or `known_lore` entries to `config.yaml`, a full reindex is needed to pick them up across existing chunks
 
 ---
 
@@ -108,6 +120,11 @@ continuity_docs/ (DOCX/PDF) → doc_reader.py ──────→ chunker.py
 | `src/indexing/vector_store.py` | ChromaDB wrapper |
 | `src/indexing/sqlite_store.py` | SQLite for structured metadata |
 | `src/retrieval/query_engine.py` | `semantic_search()`, `entity_search()`, `more_like_this()` |
+| `src/retrieval/scorer.py` | Multi-factor confidence scoring; adds `confidence` + `confidence_breakdown` to results |
+| `src/retrieval/formatters.py` | Result formatters incl. citation formatter and `format_confidence_breakdown()` |
+| `src/processing/state_builder.py` | Builds `narrative_states` snapshots after each chapter index |
+| `ui/theme.py` | Shared dark fantasy CSS constant imported by all Streamlit pages |
+| `ui/pages/1_Story_Health.py` | Story Health dashboard page |
 | `scripts/setup.py` | One-time first-run setup |
 | `scripts/sync_and_index.py` | Nightly sync with burst mode |
 | `scripts/ingest_documents.py` | One-time (or on-demand) continuity doc ingestion |
@@ -147,7 +164,9 @@ Unchanged files are skipped automatically. Use `--reindex-all` to force full reb
 ```
 .venv\Scripts\activate
 python scripts/full_reindex.py --yes
+python scripts/ingest_documents.py --reindex-all
 ```
+**Note:** `full_reindex.py` wipes the entire ChromaDB collection (manuscript + continuity). You must follow it with `ingest_documents.py --reindex-all` or the continuity docs (~5,700 chunks) will be missing. The re-ingest takes ~8 minutes due to large PDF/DOCX files.
 
 ### Test retrieval from CLI
 ```

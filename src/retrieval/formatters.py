@@ -59,5 +59,59 @@ def format_for_chatgpt(results: list[dict], query: str = "") -> str:
     return "\n".join(parts)
 
 
+def format_for_chatgpt_with_citations(results: list[dict], query: str = "") -> str:
+    """Context block with machine-readable citation keys [C{chapter_index}-P{passage_number}].
+
+    The GPT system prompt requires it to embed these keys inline so every claim
+    can be traced back to a specific passage.
+    """
+    if not results:
+        return "No relevant passages found."
+
+    parts = []
+    if query:
+        parts.append(f"MANUSCRIPT CONTEXT — Query: {query}\n")
+
+    for i, r in enumerate(results, 1):
+        chapter_index = r.get("chapter_index", 0)
+        chapter = r.get("chapter_title", "Unknown chapter")
+        scene = r.get("scene_heading", "")
+        text = r.get("text", "").strip()
+        location = chapter if not scene or scene == chapter else f"{chapter} › {scene}"
+        citation_key = f"[C{chapter_index}-P{i}]"
+
+        parts.append(f"{citation_key} [{location}]\n{text}\n")
+
+    return "\n".join(parts)
+
+
 def format_as_json(results: list[dict]) -> str:
     return json.dumps(results, indent=2, ensure_ascii=False)
+
+
+def format_confidence_breakdown(breakdown: dict) -> str:
+    """One-liner explaining why a result was retrieved.
+
+    Example: "Match: 87% similarity · 2 shared characters (Ven, Thorn) · Novel source"
+    """
+    parts = []
+
+    cosine = breakdown.get("cosine", 0)
+    parts.append(f"Match: {cosine:.0%} similarity")
+
+    matched = breakdown.get("matched_entities", [])
+    if matched:
+        names = ", ".join(matched[:3])
+        suffix = "s" if len(matched) != 1 else ""
+        parts.append(f"{len(matched)} shared character{suffix} ({names})")
+
+    src = breakdown.get("source_type", "")
+    src_labels = {
+        "manuscript": "Novel source",
+        "continuity": "Continuity source",
+        "worldbuilding": "Worldbuilding source",
+    }
+    if src:
+        parts.append(src_labels.get(src, f"{src} source"))
+
+    return " · ".join(parts)

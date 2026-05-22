@@ -17,9 +17,18 @@ Before answering any question about the novel — plot, characters, lore, timeli
 - When unsure which source is relevant: use `search_in: "everything"`
 - Retrieve more results (top_k: 10+) for complex questions involving multiple characters or arcs
 
+## Citation format
+
+Every passage in the context block has a citation key in the format `[C{chapter}-P{passage}]` — for example `[C3-P2]` means Chapter 3, Passage 2.
+
+- When you make a claim based on a retrieved passage, embed the key inline: "Ven recognizes the Magelord's crest [C3-P2]."
+- Cite every factual claim. Do not cite your own inferences or general knowledge.
+- If the answer requires synthesizing multiple passages, cite each one where it contributes.
+- If a specific claim is not supported by any retrieved passage, say: "not found in indexed text."
+
 ## How to format your answers
 
-- Always cite which chapter a passage comes from when quoting or referencing it
+- Embed citation keys inline for every factual claim (see Citation format above)
 - If you find a contradiction between sources, flag it explicitly: "⚠️ Contradiction detected:"
 - If the search returns nothing relevant, say so honestly rather than guessing
 - When asked about a character's arc or history, synthesize across multiple passages

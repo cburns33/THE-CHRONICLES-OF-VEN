@@ -9,6 +9,7 @@ from __future__ import annotations
 from src.indexing.embedder import embed_texts
 from src.indexing.vector_store import query as chroma_query, get_embedding_by_id
 from src.indexing.sqlite_store import search_entities
+from src.retrieval.scorer import score_results
 from src.utils.config import load_config
 from src.utils.logging import get_logger
 
@@ -78,6 +79,7 @@ def semantic_search(
         ]
         results = results[:top_k or cfg["retrieval"]["top_k"]]
 
+    score_results(results, query_text)
     log.info(f"Query '{query_text[:60]}…' → {len(results)} results")
     return results
 

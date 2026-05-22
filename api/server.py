@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.retrieval.query_engine import semantic_search, entity_search
-from src.retrieval.formatters import format_for_chatgpt
+from src.retrieval.formatters import format_for_chatgpt_with_citations
 from src.indexing.vector_store import collection_stats
 from src.indexing.sqlite_store import get_all_chapters
 from src.utils.config import load_config
@@ -105,7 +105,7 @@ def ask(req: AskRequest):
 
     # Build clean passage list for the GPT to reason over
     passages = []
-    for r in results:
+    for i, r in enumerate(results, 1):
         source = r.get("source_type", "manuscript")
         source_label = {
             "manuscript": "Novel",
@@ -118,10 +118,12 @@ def ask(req: AskRequest):
             "scene": r.get("scene_heading", "") or None,
             "source": source_label,
             "relevance_score": r.get("score", 0),
+            "confidence": r.get("confidence"),
+            "citation_key": f"[C{r.get('chapter_index', 0)}-P{i}]",
             "text": r.get("text", "").strip(),
         })
 
-    context_block = format_for_chatgpt(results, req.question)
+    context_block = format_for_chatgpt_with_citations(results, req.question)
 
     return AskResponse(
         question=req.question,

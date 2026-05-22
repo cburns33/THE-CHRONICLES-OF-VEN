@@ -37,6 +37,16 @@ retrieval:
   top_k: 8
   # Minimum similarity score (0.0–1.0) to include a result
   min_score: 0.30
+  # Multi-factor confidence scoring weights (must sum to 1.0)
+  scoring:
+    cosine_weight:   0.60
+    entity_weight:   0.25
+    source_weight:   0.10
+    position_weight: 0.05
+    source_type_weights:
+      manuscript:    1.00
+      worldbuilding: 0.90
+      continuity:    0.85
 
 paths:
   data_dir: "data"
@@ -47,6 +57,15 @@ paths:
   db_path: "data/novel.db"
   state_path: "data/sync_state.json"
   log_path: "data/sync.log"
+
+entities:
+  # Known fantasy proper nouns spaCy misses — checked before NER runs
+  known_characters: ["Ven", "Rho", "Thorn", "Boc", "Aveline", "Griss", "Thorne"]
+  known_places:     ["Bellwarren", "Harrowgate", "Stalgrad", "Ulun", "Voon"]
+  known_orgs:       ["Silver Oath", "Ashwing", "Myth"]
+  # World-specific common words used as proper nouns (spaCy and the ALL-CAPS
+  # lore extractor both miss these because they look like ordinary English)
+  known_lore:       ["Working", "Workings"]
 
 api:
   host: "0.0.0.0"

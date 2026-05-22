@@ -68,7 +68,7 @@ def main():
         args.query,
         top_k=args.top_k,
         filter_chapter=args.chapter,
-        filter_character=args.character,
+        filter_characters=[args.character] if args.character else None,
     )
     print(format_for_terminal(results, query=args.query))
 

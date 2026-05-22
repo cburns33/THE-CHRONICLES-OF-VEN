@@ -10,10 +10,13 @@ No technical knowledge required.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # project root
+sys.path.insert(0, str(Path(__file__).parent))          # ui/ dir
 
 import streamlit as st
+from theme import DARK_FANTASY_CSS
 from src.retrieval.query_engine import semantic_search, entity_search, more_like_this
+from src.retrieval.formatters import format_confidence_breakdown
 from src.indexing.vector_store import collection_stats
 from src.indexing.sqlite_store import get_all_chapters, get_all_entities
 from src.utils.config import load_config
@@ -27,128 +30,7 @@ st.set_page_config(
 )
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap');
-
-/* ── Base ── */
-html, body, [class*="css"] {
-    font-family: 'Crimson Text', Georgia, serif;
-    font-size: 17px;
-}
-
-.stApp {
-    background-color: #0f0e09;
-}
-
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-    background-color: #16140d;
-    border-right: 1px solid #3a3120;
-}
-[data-testid="stSidebar"] h1 {
-    font-family: 'Cinzel', serif;
-    color: #c9a84c;
-    letter-spacing: 0.05em;
-    font-size: 1.2rem;
-}
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stMarkdown p {
-    color: #b8aa8a;
-    font-family: 'Crimson Text', serif;
-}
-
-/* ── Headings ── */
-h1 { font-family: 'Cinzel', serif !important; color: #c9a84c !important; letter-spacing: 0.08em; }
-h2 { font-family: 'Cinzel', serif !important; color: #a8905c !important; }
-h3 { font-family: 'Cinzel', serif !important; color: #8a7a50 !important; }
-
-/* ── Search input ── */
-[data-testid="stTextInput"] input {
-    background-color: #1e1b12;
-    border: 1px solid #4a3f25;
-    color: #e8dfc8;
-    font-family: 'Crimson Text', serif;
-    font-size: 18px;
-    border-radius: 4px;
-}
-[data-testid="stTextInput"] input:focus {
-    border-color: #c9a84c;
-    box-shadow: 0 0 0 1px #c9a84c44;
-}
-[data-testid="stTextInput"] input::placeholder {
-    color: #6a6045;
-    font-style: italic;
-}
-
-/* ── Search button ── */
-[data-testid="stButton"] button[kind="primary"] {
-    background-color: #5a3e1b;
-    border: 1px solid #c9a84c;
-    color: #f0e4c4;
-    font-family: 'Cinzel', serif;
-    letter-spacing: 0.1em;
-    font-size: 13px;
-    border-radius: 3px;
-    padding: 0.4rem 1.4rem;
-    transition: all 0.2s ease;
-}
-[data-testid="stButton"] button[kind="primary"]:hover {
-    background-color: #7a5525;
-    border-color: #e0c068;
-    color: #fff8e8;
-}
-
-/* ── Result expanders (passage cards) ── */
-[data-testid="stExpander"] {
-    background-color: #1a1710;
-    border: 1px solid #352e1c;
-    border-radius: 3px;
-    margin-bottom: 0.5rem;
-}
-[data-testid="stExpander"]:hover {
-    border-color: #4a4025;
-}
-[data-testid="stExpander"] summary {
-    font-family: 'Cinzel', serif;
-    font-size: 14px;
-    color: #c9a84c;
-    letter-spacing: 0.03em;
-}
-[data-testid="stExpander"] p,
-[data-testid="stExpander"] .stMarkdown {
-    color: #ddd3b8;
-    font-family: 'Crimson Text', serif;
-    font-size: 17px;
-    line-height: 1.7;
-}
-
-/* ── Captions / metadata ── */
-[data-testid="stCaptionContainer"] p,
-small, .stCaption {
-    color: #7a6e52 !important;
-    font-family: 'Crimson Text', serif;
-    font-style: italic;
-}
-
-/* ── Success / info banners ── */
-[data-testid="stAlert"] {
-    background-color: #1e1b10;
-    border-color: #4a3f25;
-    color: #c9a84c;
-}
-
-/* ── Dividers ── */
-hr {
-    border-color: #3a3120 !important;
-}
-
-/* ── General text ── */
-p, li, span {
-    color: #ddd3b8;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(DARK_FANTASY_CSS, unsafe_allow_html=True)
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -302,6 +184,10 @@ def _render_results(results: list[dict], query_label: str) -> None:
             cols = st.columns([3, 1])
             with cols[0]:
                 st.markdown(text)
+                breakdown = r.get("confidence_breakdown")
+                if breakdown:
+                    with st.expander("Why this result?"):
+                        st.caption(format_confidence_breakdown(breakdown))
                 if chunk_id:
                     if st.button("More like this", key=f"mlt_{chunk_id}"):
                         st.session_state["mlt_chunk_id"] = chunk_id
