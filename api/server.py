@@ -1,15 +1,17 @@
 """FastAPI query server.
 
-ChatGPT or any external tool can POST to /query and receive
-ranked manuscript passages as JSON.
+Serves semantic search over the manuscript and continuity docs.
+Designed for both direct use and Custom GPT Actions.
 
 Start with:
   uvicorn api.server:app --host 0.0.0.0 --port 8000
 
 Endpoints:
-  POST /query          Semantic search
-  GET  /stats          Index statistics
+  POST /ask            Primary endpoint for Custom GPT — handles all query types
+  POST /query          Semantic search (raw results)
+  GET  /entity         Entity/character chapter lookup
   GET  /chapters       List all chapters
+  GET  /stats          Index statistics
   GET  /health         Health check
 """
 
@@ -21,81 +23,162 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-from src.retrieval.query_engine import semantic_search, entity_search, combined_search
+from src.retrieval.query_engine import semantic_search, entity_search
 from src.retrieval.formatters import format_for_chatgpt
 from src.indexing.vector_store import collection_stats
 from src.indexing.sqlite_store import get_all_chapters
 from src.utils.config import load_config
 
+cfg = load_config()
+
 app = FastAPI(
-    title="Inherited Cloud — Novel Query API",
-    description="Semantic search over a fantasy manuscript.",
+    title="Chronicles of Ven — Manuscript Search",
+    description=(
+        "Semantic search over a fantasy novel manuscript and its continuity documents. "
+        "Returns relevant passages with chapter context for use in AI writing assistance."
+    ),
     version="1.0.0",
 )
 
-cfg = load_config()
+# Allow ChatGPT to call the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://chat.openai.com", "https://chatgpt.com"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 
-class QueryRequest(BaseModel):
-    query: str
-    top_k: int = cfg["retrieval"]["top_k"]
-    filter_chapter: str | None = None
-    filter_character: str | None = None
-    format: str = "json"  # "json" or "chatgpt"
+# ── /ask — Primary Custom GPT endpoint ───────────────────────────────────────
+
+class AskRequest(BaseModel):
+    question: str = Field(
+        ...,
+        description="A natural language question about the manuscript, characters, lore, plot, or continuity.",
+        examples=["Where was the Silver Oath first mentioned?", "What does Ven know about the Magelord?"],
+    )
+    search_in: str = Field(
+        default="everything",
+        description="Where to search: 'everything', 'novel', 'continuity', or 'worldbuilding'.",
+    )
+    top_k: int = Field(default=6, ge=1, le=20, description="Number of passages to return.")
 
 
-class QueryResponse(BaseModel):
-    query: str
-    results: list[dict]
-    count: int
-    formatted: str | None = None
+class AskResponse(BaseModel):
+    question: str
+    passages: list[dict] = Field(description="Relevant passages from the manuscript, sorted by relevance.")
+    context_block: str = Field(description="Pre-formatted context block ready to reason over.")
+    total_results: int
 
 
-@app.post("/query", response_model=QueryResponse)
-def query_endpoint(req: QueryRequest):
-    if not req.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+@app.post(
+    "/ask",
+    response_model=AskResponse,
+    summary="Ask a question about the manuscript",
+    description=(
+        "The primary endpoint for the Custom GPT. Given a natural language question, "
+        "returns the most relevant passages from the manuscript and/or continuity documents, "
+        "along with a pre-formatted context block. Use this before answering any question "
+        "about the novel's plot, characters, lore, timeline, or continuity."
+    ),
+)
+def ask(req: AskRequest):
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    source_map = {
+        "everything": None,
+        "novel": "manuscript",
+        "continuity": "continuity",
+        "worldbuilding": "worldbuilding",
+    }
+    filter_source = source_map.get(req.search_in.lower())
 
     results = semantic_search(
-        req.query,
+        req.question,
         top_k=req.top_k,
-        filter_chapter=req.filter_chapter,
-        filter_character=req.filter_character,
+        filter_source=filter_source,
     )
 
-    formatted = None
-    if req.format == "chatgpt":
-        formatted = format_for_chatgpt(results, req.query)
+    # Build clean passage list for the GPT to reason over
+    passages = []
+    for r in results:
+        source = r.get("source_type", "manuscript")
+        source_label = {
+            "manuscript": "Novel",
+            "continuity": f"Continuity ({r.get('doc_subtype', 'doc')})",
+            "worldbuilding": "World Building",
+        }.get(source, source)
 
-    return QueryResponse(
-        query=req.query,
-        results=results,
-        count=len(results),
-        formatted=formatted,
+        passages.append({
+            "chapter": r.get("chapter_title", ""),
+            "scene": r.get("scene_heading", "") or None,
+            "source": source_label,
+            "relevance_score": r.get("score", 0),
+            "text": r.get("text", "").strip(),
+        })
+
+    context_block = format_for_chatgpt(results, req.question)
+
+    return AskResponse(
+        question=req.question,
+        passages=passages,
+        context_block=context_block,
+        total_results=len(passages),
     )
 
 
-@app.get("/entity")
+# ── /entity — Character / place lookup ───────────────────────────────────────
+
+@app.get(
+    "/entity",
+    summary="Look up which chapters mention a character, place, or named object",
+    description="Returns a list of chapters where the given name appears. Useful for tracking a character across the story.",
+)
 def entity_endpoint(
-    name: str = Query(..., description="Entity name to search for"),
-    entity_type: str | None = Query(None, description="PERSON | PLACE | ORG | LORE"),
+    name: str = Query(..., description="Name to search for, e.g. 'Ven', 'Harrowgate', 'Silver Oath'"),
 ):
-    results = entity_search(name, entity_type)
-    return {"name": name, "matches": results, "count": len(results)}
+    results = entity_search(name)
+    return {
+        "name": name,
+        "appears_in": [
+            {"chapter": r["chapter_title"], "chapter_number": r["chapter_idx"], "type": r["entity_type"]}
+            for r in results
+        ],
+        "count": len(results),
+    }
 
 
-@app.get("/chapters")
+# ── /chapters — Chapter list ──────────────────────────────────────────────────
+
+@app.get(
+    "/chapters",
+    summary="List all indexed chapters",
+    description="Returns all chapters currently indexed from the manuscript.",
+)
 def chapters_endpoint():
-    return {"chapters": get_all_chapters()}
+    chapters = get_all_chapters()
+    return {
+        "chapters": [
+            {"number": c["chapter_idx"], "title": c["title"], "chunks": c["chunk_count"]}
+            for c in chapters
+            if c.get("source_type", "manuscript") == "manuscript" or not c.get("source_type")
+        ]
+    }
 
 
-@app.get("/stats")
+# ── /stats ────────────────────────────────────────────────────────────────────
+
+@app.get("/stats", summary="Index statistics", include_in_schema=False)
 def stats_endpoint():
     return collection_stats()
 
 
-@app.get("/health")
+# ── /health ───────────────────────────────────────────────────────────────────
+
+@app.get("/health", summary="Health check", include_in_schema=False)
 def health():
     return {"status": "ok"}
