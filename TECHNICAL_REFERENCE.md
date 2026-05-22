@@ -2,7 +2,7 @@
 
 This document exists so that new Claude sessions can understand the full codebase without reading individual source files. Keep it updated after each implementation session.
 
-**Last updated:** 2026-05-22 — Phase 3 complete.
+**Last updated:** 2026-05-22 — Phases 1–3 complete; known_lore added.
 
 ---
 
@@ -107,10 +107,11 @@ def enrich_chunks(chunks: list[Chunk]) -> list[Chunk]
 **`entity_extractor.py`**
 ```python
 def extract_entities(text: str) -> dict[str, list[str]]
-    # Returns {"PERSON": [...], "PLACE": [...], "ORG": [...]}
+    # Returns {"PERSON": [...], "PLACE": [...], "ORG": [...], "LORE": [...]}
     # Uses spaCy en_core_web_sm (loaded once via lru_cache)
     # Caps input at 10k chars; maps GPE/LOC → PLACE
-    # NOTE: misses fantasy proper nouns (Ven, Rho, Bellwarren) — Phase 2 adds known-entity override
+    # Known-entity lists from config.yaml injected before spaCy runs (Phase 2)
+    # known_lore terms injected as LORE entries — catches world-specific common words
 
 def enrich_chunks_with_entities(chunks: list[Chunk]) -> list[Chunk]
     # Calls extract_entities() per chunk, stores as chunk.metadata["entities"]
@@ -440,7 +441,19 @@ embeddings:
 retrieval:
   top_k: 8
   min_score: 0.30
-  # PLANNED (Phase 1): scoring weights sub-section
+  scoring:
+    cosine_weight: 0.60
+    entity_weight: 0.25
+    source_weight: 0.10
+    position_weight: 0.05
+    source_type_weights: {manuscript: 1.00, worldbuilding: 0.90, continuity: 0.85}
+
+entities:
+  known_characters: [...]   # fantasy names spaCy misses → tagged PERSON
+  known_places:     [...]   # fantasy places → tagged PLACE
+  known_orgs:       [...]   # factions, deities → tagged ORG
+  known_lore:       [...]   # world-specific common words used as proper nouns → tagged LORE
+                            # e.g. "Working"/"Workings" (spell name), "Myth" (god) already in known_orgs
 
 paths:
   data_dir, raw_dir, markdown_dir, chunks_dir, chroma_dir, db_path, state_path, log_path
