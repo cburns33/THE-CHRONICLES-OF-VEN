@@ -1,0 +1,59 @@
+# =============================================================================
+# Inherited Cloud — Configuration
+# All runtime behaviour is controlled here. No code changes needed.
+# =============================================================================
+
+google_docs:
+  # Paste the Google Doc ID from the URL:
+  # https://docs.google.com/document/d/THIS_PART_HERE/edit
+  document_id: "1Pxgo3LF0E9VkbZEYK-T2y9LNEes6mXq0mGJqadnh-F0"
+  # How often to check for changes in burst mode (seconds)
+  burst_interval_seconds: 1800       # 30 minutes
+  # How long to stay in burst mode after detecting a change (seconds)
+  burst_duration_seconds: 10800      # 3 hours
+
+chunking:
+  # Target chunk size in tokens
+  chunk_size: 600
+  # Overlap between adjacent chunks in tokens
+  chunk_overlap: 100
+  # Headings that signal a new scene/section split (Markdown heading levels)
+  scene_separators:
+    - "\n## "
+    - "\n### "
+    - "\n#### "
+    - "\n\n"
+
+embeddings:
+  # Options: "openai" or "local"
+  provider: "openai"
+  # OpenAI model name (only used when provider is "openai")
+  openai_model: "text-embedding-3-small"
+  # Local model name (only used when provider is "local")
+  local_model: "all-MiniLM-L6-v2"
+
+retrieval:
+  # Number of results to return by default
+  top_k: 8
+  # Minimum similarity score (0.0–1.0) to include a result
+  min_score: 0.30
+
+paths:
+  data_dir: "data"
+  raw_dir: "data/raw"
+  markdown_dir: "data/markdown"
+  chunks_dir: "data/chunks"
+  chroma_dir: "data/chroma_db"
+  db_path: "data/novel.db"
+  state_path: "data/sync_state.json"
+  log_path: "data/sync.log"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+ui:
+  host: "0.0.0.0"
+  port: 8501
+  # Title shown in the browser tab and header
+  title: "Novel Search"

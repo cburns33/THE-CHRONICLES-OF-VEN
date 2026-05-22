@@ -1,0 +1,37 @@
+# Google Docs / Drive API
+google-api-python-client>=2.131.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.1
+
+# HTML → Markdown
+markdownify>=0.13.1
+beautifulsoup4>=4.12.0
+
+# Text splitting / chunking
+langchain-text-splitters>=0.2.4
+
+# Embeddings
+openai>=1.35.7
+tiktoken>=0.7.0
+
+# Vector store
+chromadb>=0.5.3
+
+# Entity extraction
+spacy>=3.8.0
+
+# API server
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# Author UI
+streamlit>=1.36.0
+
+# DOCX / PDF ingestion
+python-docx>=1.1.0
+pdfplumber>=0.11.0
+
+# Utilities
+pyyaml>=6.0.1
+python-dotenv>=1.0.1
+requests>=2.32.0

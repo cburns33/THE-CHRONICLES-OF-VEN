@@ -1,0 +1,21 @@
+[Unit]
+Description=Inherited Cloud — Streamlit Author UI
+After=network.target
+
+[Service]
+Type=simple
+User=novel
+WorkingDirectory=/opt/inherited-cloud
+EnvironmentFile=/opt/inherited-cloud/.env
+ExecStart=/opt/inherited-cloud/.venv/bin/streamlit run ui/app.py \
+    --server.port 8501 \
+    --server.address 0.0.0.0 \
+    --server.headless true \
+    --browser.gatherUsageStats false
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

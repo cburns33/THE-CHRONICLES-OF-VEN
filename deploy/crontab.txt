@@ -1,0 +1,8 @@
+# Inherited Cloud — cron schedule
+# 3am CT = 9am UTC (CT is UTC-6; adjust to UTC-5 in summer → 8am UTC)
+# This single entry covers both. The script self-manages burst mode internally.
+#
+# Install with:
+#   crontab -u novel /opt/inherited-cloud/deploy/crontab.txt
+
+0 9 * * * cd /opt/inherited-cloud && /opt/inherited-cloud/.venv/bin/python scripts/sync_and_index.py >> /opt/inherited-cloud/data/sync.log 2>&1
