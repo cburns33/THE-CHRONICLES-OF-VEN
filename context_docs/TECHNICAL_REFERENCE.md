@@ -2,7 +2,7 @@
 
 This document exists so that new Claude sessions can understand the full codebase without reading individual source files. Keep it updated after each implementation session.
 
-**Last updated:** 2026-05-22 — Phases 1–3 complete; known_lore added.
+**Last updated:** 2026-05-27 — Phases 1–3 complete; VPS deployed at novel.talos-advisory.com.
 
 ---
 
@@ -470,14 +470,16 @@ ui:
 
 ---
 
-## Current Index State (2026-05-22)
+## Current Index State (2026-05-27)
 
 | Source | Files | Chunks |
 |---|---|---|
 | Novel manuscript (Google Docs) | 9 chapters | 92 chunks |
 | Continuity docs | 8 files | 5,655 chunks |
 | Worldbuilding | 1 file | 26 chunks |
-| **Total** | | **~5,773 chunks** |
+| **Total** | | **5,747 chunks** |
+
+Confirmed live on VPS via `scripts/query.py --stats` on 2026-05-27.
 
 Continuity doc notes: Several files are raw ChatGPT conversation exports (user messages + AI responses mixed with story content). Accepted as-is (Option B decision). The Stalgrad Voon Arc doc alone = 2,113 chunks.
 
@@ -492,6 +494,86 @@ scripts/full_reindex.py        # wipe ChromaDB + SQLite, rebuild everything
 scripts/ingest_documents.py    # continuity docs ingestion (skip unchanged by hash)
 scripts/query.py               # CLI test tool: query.py "text" [--entity] [--stats] [--chapters]
 ```
+
+---
+
+## Deployment / VPS
+
+### Infrastructure
+
+| What | Value |
+|---|---|
+| Provider | IONOS VPS XS |
+| IP | `216.250.112.169` |
+| OS | Ubuntu 22.04 LTS |
+| Domain | `novel.talos-advisory.com` (Cloudflare proxied, HTTPS) |
+| API base URL | `https://novel.talos-advisory.com/api` |
+| Project path | `/opt/inherited-cloud/` |
+| Service user | `novel` |
+
+### Services (systemd)
+
+| Service | What it runs | Port |
+|---|---|---|
+| `novel-api` | `uvicorn api.server:app` | 8000 |
+| `novel-ui` | `streamlit run ui/app.py` | 8501 |
+
+Both services are enabled (auto-start on reboot) and run as the `novel` user.
+
+```bash
+systemctl status novel-api novel-ui      # check health
+systemctl restart novel-api              # after API/src changes
+systemctl restart novel-ui               # after UI changes
+journalctl -u novel-api -f               # stream logs
+```
+
+### nginx routing
+
+Config at `/etc/nginx/sites-available/inherited-cloud`:
+- `https://novel.talos-advisory.com/` → Streamlit UI (port 8501)
+- `https://novel.talos-advisory.com/api/` → FastAPI (port 8000, `/api/` prefix stripped)
+
+### Cron (nightly sync)
+
+Runs as `novel` user at 3am CT (9am UTC):
+```
+0 9 * * * cd /opt/inherited-cloud && .venv/bin/python scripts/sync_and_index.py >> data/sync.log 2>&1
+```
+
+### Deploying code changes
+
+Double-click `deploy/windows/PUSH_TO_VPS.bat` on Windows. Copies `src/`, `api/`, `ui/`,
+`scripts/`, `config.yaml`, `requirements.txt` via scp and restarts both services.
+
+Manual equivalent:
+```powershell
+scp -r src api ui scripts config.yaml requirements.txt root@216.250.112.169:/opt/inherited-cloud/
+ssh root@216.250.112.169 "systemctl restart novel-api novel-ui"
+```
+
+### Provisioning gotcha
+
+Ubuntu 22.04 default apt repos do not include Python 3.11. `provision.sh` uses
+`set -euo pipefail` and exits early on this error, skipping the `novel` user and
+nginx installs. On any reprovision, add the deadsnakes PPA before running the script:
+```bash
+add-apt-repository ppa:deadsnakes/ppa -y && apt-get update
+```
+Or fix `provision.sh` to include this step before the Python install line.
+
+### Deployment files
+
+| File | Purpose |
+|---|---|
+| `deploy/provision.sh` | One-time VPS provisioning (run as root) |
+| `deploy/setup_venv.sh` | Create `.venv` and install deps on server |
+| `deploy/install_services.sh` | Install + enable systemd services |
+| `deploy/crontab.txt` | Nightly sync cron definition |
+| `deploy/nginx.conf` | nginx reverse proxy config |
+| `deploy/services/novel-api.service` | systemd unit for FastAPI |
+| `deploy/services/novel-ui.service` | systemd unit for Streamlit |
+| `deploy/windows/PUSH_TO_VPS.bat` | Push local code changes to VPS |
+| `deploy/windows/AUTHOR_SETUP_VPS.md` | One-time Custom GPT setup guide for Zach |
 
 ---
 

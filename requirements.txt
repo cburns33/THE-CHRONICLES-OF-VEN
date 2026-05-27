@@ -26,6 +26,7 @@ uvicorn[standard]>=0.30.0
 
 # Author UI
 streamlit>=1.36.0
+plotly>=5.22.0
 
 # DOCX / PDF ingestion
 python-docx>=1.1.0

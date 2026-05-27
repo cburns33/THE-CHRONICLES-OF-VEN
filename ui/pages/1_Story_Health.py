@@ -82,6 +82,7 @@ else:
     try:
         import plotly.graph_objects as go
         import pandas as pd
+        from plotly.subplots import make_subplots
 
         df = pd.DataFrame(appearances)
 
@@ -126,46 +127,120 @@ else:
             "#c4b06b",  # warm amber
         ]
 
-        fig = go.Figure()
-        for i, char in enumerate(top_chars):
-            if char in pivot.columns:
-                fig.add_trace(go.Bar(
-                    name=char,
-                    x=pivot["chapter_label"],
-                    y=pivot[char],
-                    marker_color=palette[i % len(palette)],
-                ))
-
-        fig.update_layout(
-            barmode="stack",
-            plot_bgcolor="#0f0e09",
-            paper_bgcolor="#0f0e09",
-            font=dict(color="#ddd3b8", family="Crimson Text, Georgia, serif"),
-            legend=dict(
-                bgcolor="#16140d",
-                bordercolor="#3a3120",
-                borderwidth=1,
-                font=dict(color="#b8aa8a"),
-            ),
-            xaxis=dict(
-                tickfont=dict(color="#b8aa8a"),
-                gridcolor="#1e1b10",
-                linecolor="#3a3120",
-            ),
-            yaxis=dict(
-                title="Chunk appearances",
-                tickfont=dict(color="#b8aa8a"),
-                gridcolor="#1e1b10",
-                linecolor="#3a3120",
-            ),
-            margin=dict(l=40, r=20, t=20, b=40),
-            height=380,
+        view = st.radio(
+            "chart_view",
+            ["Stacked", "Small Multiples"],
+            horizontal=True,
+            label_visibility="collapsed",
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        if view == "Stacked":
+            fig = go.Figure()
+            for i, char in enumerate(top_chars):
+                if char in pivot.columns:
+                    fig.add_trace(go.Bar(
+                        name=char,
+                        x=pivot["chapter_label"],
+                        y=pivot[char],
+                        marker_color=palette[i % len(palette)],
+                    ))
+
+            fig.update_layout(
+                barmode="stack",
+                plot_bgcolor="#0f0e09",
+                paper_bgcolor="#0f0e09",
+                font=dict(color="#ddd3b8", family="Crimson Text, Georgia, serif"),
+                legend=dict(
+                    bgcolor="#16140d",
+                    bordercolor="#3a3120",
+                    borderwidth=1,
+                    font=dict(color="#b8aa8a"),
+                ),
+                xaxis=dict(
+                    tickfont=dict(color="#b8aa8a"),
+                    gridcolor="#1e1b10",
+                    linecolor="#3a3120",
+                ),
+                yaxis=dict(
+                    title="Chunk appearances",
+                    tickfont=dict(color="#b8aa8a"),
+                    gridcolor="#1e1b10",
+                    linecolor="#3a3120",
+                ),
+                margin=dict(l=40, r=20, t=20, b=40),
+                height=380,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        else:
+            n = len(top_chars)
+            spacing = 0.018
+            row_h = (1 - spacing * (n - 1)) / n
+            # Paper-coord y-center for each row, top to bottom
+            centers = [1 - row_h / 2 - i * (row_h + spacing) for i in range(n)]
+
+            fig2 = make_subplots(
+                rows=n, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=spacing,
+            )
+
+            for i, char in enumerate(top_chars):
+                color = palette[i % len(palette)]
+                y_vals = pivot[char].tolist() if char in pivot.columns else [0] * len(pivot)
+
+                fig2.add_trace(
+                    go.Bar(
+                        x=pivot["chapter_label"],
+                        y=y_vals,
+                        marker_color=color,
+                        marker_line_width=0,
+                        showlegend=False,
+                        hovertemplate=f"<b>{char}</b><br>%{{x}}: %{{y}}<extra></extra>",
+                    ),
+                    row=i + 1, col=1,
+                )
+
+                fig2.add_annotation(
+                    text=char,
+                    xref="paper", yref="paper",
+                    x=-0.01, y=centers[i],
+                    xanchor="right", yanchor="middle",
+                    showarrow=False,
+                    font=dict(color=color, size=11, family="Crimson Text, Georgia, serif"),
+                )
+
+                fig2.update_yaxes(
+                    showticklabels=False,
+                    showgrid=False,
+                    zeroline=False,
+                    showline=False,
+                    row=i + 1, col=1,
+                )
+                fig2.update_xaxes(
+                    showticklabels=(i == n - 1),
+                    showgrid=False,
+                    zeroline=False,
+                    showline=(i == n - 1),
+                    linecolor="#3a3120",
+                    row=i + 1, col=1,
+                )
+
+            fig2.update_xaxes(
+                tickfont=dict(color="#b8aa8a", size=10),
+                row=n, col=1,
+            )
+            fig2.update_layout(
+                plot_bgcolor="#0f0e09",
+                paper_bgcolor="#0f0e09",
+                font=dict(color="#ddd3b8", family="Crimson Text, Georgia, serif"),
+                height=58 * n + 60,
+                margin=dict(l=110, r=20, t=10, b=40),
+                bargap=0.25,
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
     except ImportError:
-        # Plotly not installed — fall back to a simple table
         import pandas as pd
         df = pd.DataFrame(appearances)
         top = (

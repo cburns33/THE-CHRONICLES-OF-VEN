@@ -406,8 +406,9 @@ Google Docs API (tabs)            continuity_docs/ (DOCX/PDF)
 ui/app.py           api/server.py
 (Search)            (FastAPI /ask)
 ui/pages/                ↓
-  1_Story_Health.py  ngrok tunnel
-  2_Lore_Wiki.py         ↓
+  1_Story_Health.py  IONOS VPS
+  2_Lore_Wiki.py     novel.talos-advisory.com
+                         ↓
                     Custom GPT
 ```
 

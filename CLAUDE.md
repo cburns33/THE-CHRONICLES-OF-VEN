@@ -7,11 +7,11 @@
 A semantic search and retrieval system for a fantasy novel manuscript. The author writes in Google Docs (using Tabs for chapters). This system indexes the manuscript and a corpus of old D&D campaign continuity documents, then serves semantic search via a Streamlit browser UI and a FastAPI endpoint for a Custom GPT.
 
 **Author:** Non-technical. Should never touch code.
-**Chase's role:** Maintains the system, handles fixes or upgrades, runs the server when the author wants to use it.
+**Chase's role:** Maintains the system, handles fixes or upgrades. The server runs 24/7 on a VPS — no manual start needed.
 
 ---
 
-## Current state (as of 2026-05-22) — Phases 1–3 complete
+## Current state (as of 2026-05-27) — Phases 1–3 complete + VPS deployed
 
 ### What is fully working
 - Google Docs API sync (tabs-based — each tab = one chapter)
@@ -24,9 +24,11 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - Dark fantasy theme (Cinzel/Crimson Text fonts, gold/charcoal palette) — shared via `ui/theme.py`
 - FastAPI `/ask` endpoint with citation keys (`[C{n}-P{n}]`) for Custom GPT
 - Custom GPT system prompt + author setup guide
-- ngrok static domain locked in: `tarot-seltzer-ought.ngrok-free.dev`
-- Windows `.bat` launchers: `START_SEARCH.bat` and `START_WITH_CHATGPT.bat`
-- Author-facing Custom GPT setup guide: `deploy/windows/AUTHOR_SETUP.md`
+- IONOS VPS running 24/7 at `novel.talos-advisory.com` (Cloudflare proxied, HTTPS)
+- API live at `https://novel.talos-advisory.com/api` — no ngrok or Chase's machine required
+- Nightly manuscript sync via cron at 3am CT on the VPS
+- Windows `.bat` launchers: `START_SEARCH.bat` and `START_WITH_CHATGPT.bat` (local use only)
+- Author-facing Custom GPT setup guide: `deploy/windows/AUTHOR_SETUP_VPS.md`
 - Embedding cache (SQLite) — repeated queries don't re-call OpenAI
 - "More like this" button on result cards
 - Character/place multiselect filters in UI
@@ -40,7 +42,6 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - `known_lore` list in `config.yaml` catches world-specific common words used as proper nouns (e.g. "Working", "Workings", "Myth")
 
 ### What is NOT yet done
-- Windows Task Scheduler setup (auto-sync at 3am CT) — still manual for now
 - Continuity doc ingestion may need re-run when author locates more old files
 - Phase 4: Lore wiki (`wiki_entries` table, `wiki_builder.py`, `2_Lore_Wiki.py` page)
 - Narrative states table is empty until the next full reindex populates it
@@ -48,9 +49,9 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 ### Known issues / gotchas
 - `Ven Transcript Part 6.docx` was empty — skipped at ingestion, not a bug
 - Windows terminal (cp1252) cannot print some Unicode from the manuscript — fixed in `scripts/query.py` but raw `python -c` one-liners will still fail; use the scripts
-- ngrok free tier: the static domain (`tarot-seltzer-ought.ngrok-free.dev`) is permanent but ngrok must be running on Chase's machine for the Custom GPT to work
 - Background Bash tasks in Claude Code are slow to flush output — use `run_in_background=true` and wait for task-notification rather than polling
 - After adding new `known_characters`, `known_places`, `known_orgs`, or `known_lore` entries to `config.yaml`, a full reindex is needed to pick them up across existing chunks
+- When pushing code changes to the VPS, copy updated files via `scp` and restart the affected service (`systemctl restart novel-api` or `novel-ui`)
 
 ---
 
@@ -62,16 +63,9 @@ There are two ways the author can interact with the system:
 Chase double-clicks `START_SEARCH.bat`. A browser opens on Chase's machine at `http://localhost:8501`. The author can use it if Chase shares his screen, or Chase can run queries on his behalf.
 
 ### Option B — Custom GPT (author's own ChatGPT)
-This is the main intended workflow. The author has a Custom GPT called "Chronicles of Ven" in his ChatGPT account. When he wants to use it:
+This is the main intended workflow. The author has a Custom GPT called "Chronicles of Ven" in his ChatGPT account. He opens ChatGPT, clicks Chronicles of Ven, and types his question. No coordination with Chase needed — the API runs 24/7 on the VPS.
 
-1. He texts Chase
-2. Chase double-clicks `START_WITH_CHATGPT.bat` (starts API + ngrok tunnel, takes ~30 seconds)
-3. Chase texts back "ready"
-4. The author opens ChatGPT, clicks Chronicles of Ven, and types his question
-5. The GPT silently searches the manuscript, then answers with sourced passages
-6. Chase can close it when the author is done
-
-The author's Custom GPT was set up once using `deploy/windows/AUTHOR_SETUP.md` and never needs to be touched again, as long as the ngrok static domain stays the same (it will — it's permanent).
+The Custom GPT is set up once using `deploy/windows/AUTHOR_SETUP_VPS.md`. As of 2026-05-27 Zach has not yet done this setup.
 
 **What the author does NOT need to do:** install anything, run any commands, touch any files, or understand how any of it works. He just opens ChatGPT.
 
@@ -132,19 +126,42 @@ continuity_docs/ (DOCX/PDF) → doc_reader.py ──────→ chunker.py
 | `ui/app.py` | Streamlit author UI |
 | `api/server.py` | FastAPI server (`/ask` endpoint for Custom GPT) |
 | `deploy/windows/START_SEARCH.bat` | Double-click: starts API + Streamlit UI |
-| `deploy/windows/START_WITH_CHATGPT.bat` | Double-click: starts API + UI + ngrok tunnel |
-| `deploy/windows/AUTHOR_SETUP.md` | One-time Custom GPT setup guide for the author |
+| `deploy/windows/START_WITH_CHATGPT.bat` | Double-click: starts API + UI + ngrok tunnel (local fallback only) |
+| `deploy/windows/AUTHOR_SETUP_VPS.md` | One-time Custom GPT setup guide for the author (send this to Zach) |
+| `deploy/windows/AUTHOR_SETUP.md` | Old ngrok-based setup guide — superseded, kept for reference |
 | `deploy/custom_gpt/system_prompt.md` | The GPT's instruction set |
 
 ---
 
 ## Common tasks
 
-### Start everything (UI + ChatGPT support)
-Double-click `deploy/windows/START_WITH_CHATGPT.bat`
-
-### Start UI only (no ChatGPT)
+### Start local UI (Chase's machine only — for screen-share sessions)
 Double-click `deploy/windows/START_SEARCH.bat`
+
+### Check VPS service health
+```
+ssh root@216.250.112.169
+systemctl status novel-api novel-ui
+```
+
+### Restart a VPS service (after deploying a code change)
+```
+ssh root@216.250.112.169
+systemctl restart novel-api   # or novel-ui
+```
+
+### Push a code change to the VPS
+```powershell
+# From project root on Windows — example pushing src/ and api/ after a code change
+scp -r src api root@216.250.112.169:/opt/inherited-cloud/
+ssh root@216.250.112.169 "systemctl restart novel-api"
+```
+
+### Trigger a manual sync on the VPS
+```
+ssh root@216.250.112.169
+sudo -u novel /opt/inherited-cloud/.venv/bin/python /opt/inherited-cloud/scripts/sync_and_index.py
+```
 
 ### Manually trigger a manuscript sync
 ```
@@ -207,14 +224,16 @@ Subtypes (`doc_subtype`): `handoff`, `transcript`, `story`, `worldbuilding`, `un
 
 ---
 
-## ngrok / Custom GPT
+## VPS / Custom GPT
 
-- **Static domain:** `tarot-seltzer-ought.ngrok-free.dev` (permanent, free)
-- **OpenAPI schema URL:** `https://tarot-seltzer-ought.ngrok-free.dev/openapi.json`
-- **Start tunnel:** `ngrok http 8000 --domain=tarot-seltzer-ought.ngrok-free.dev`
-  (handled automatically by `START_WITH_CHATGPT.bat`)
-- **Author's Custom GPT name:** Chronicles of Ven (on his ChatGPT Plus account)
-- The Custom GPT only works when Chase has the bat file running
+- **VPS:** IONOS VPS XS — IP `216.250.112.169`
+- **Domain:** `novel.talos-advisory.com` (Cloudflare proxied, HTTPS)
+- **API base URL:** `https://novel.talos-advisory.com/api`
+- **OpenAPI schema URL:** `https://novel.talos-advisory.com/api/openapi.json`
+- **Author's Custom GPT name:** Chronicles of Ven (setup not yet done as of 2026-05-27)
+- **Author setup guide:** `deploy/windows/AUTHOR_SETUP_VPS.md`
+- The API runs 24/7 — no action from Chase needed for Zach to use it
+- Nightly sync cron runs at 3am CT as the `novel` user
 
 ---
 
@@ -228,17 +247,18 @@ Subtypes (`doc_subtype`): `handoff`, `transcript`, `story`, `worldbuilding`, `un
 
 ---
 
-## Future upgrade path
+## VPS deployment notes
 
-When/if the author decides the tool is worth $2/month:
-1. Spin up IONOS VPS XS (Ubuntu, 1 vCore, 1GB RAM, 10GB NVMe)
-2. Run `deploy/provision.sh` on the server
-3. Copy project folder to `/opt/inherited-cloud`
-4. Run `deploy/setup_venv.sh`
-5. Copy `.env`, `credentials.json`, `token.json` to the server
-6. Install systemd services: `deploy/install_services.sh`
-7. Install cron: `crontab -u novel deploy/crontab.txt`
-8. Configure nginx: `deploy/nginx.conf`
-9. Update Custom GPT action URL to the VPS IP
+The VPS was provisioned on 2026-05-27. Key gotcha encountered during setup:
+`provision.sh` uses `set -euo pipefail` and exited early when `python3.11` wasn't
+found in the default Ubuntu 22.04 apt repos. This meant the `novel` user and nginx
+were never created by the script. Fix applied manually:
 
-Result: everything runs 24/7, no coordination needed, author can use the GPT anytime.
+```bash
+add-apt-repository ppa:deadsnakes/ppa -y && apt-get update && apt-get install -y python3.11 python3.11-venv python3-pip
+useradd -r -m -s /bin/bash novel
+apt-get install -y nginx
+```
+
+If reprovisioning from scratch, add the deadsnakes PPA step to `provision.sh` before
+the Python install line.
