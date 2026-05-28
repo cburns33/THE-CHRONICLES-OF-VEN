@@ -50,7 +50,7 @@ h3 { font-family: 'Cinzel', serif !important; color: #8a7a50 !important; }
     box-shadow: 0 0 0 1px #c9a84c44;
 }
 [data-testid="stTextInput"] input::placeholder {
-    color: #6a6045;
+    color: rgb(221, 211, 184);
     font-style: italic;
 }
 
@@ -127,6 +127,137 @@ footer {
 /* ── General text ── */
 p, li, span {
     color: #ddd3b8;
+}
+
+/* ── Selectbox ── */
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    background-color: #1e1b12 !important;
+    border: 1px solid #4a3f25 !important;
+    border-radius: 4px !important;
+}
+[data-testid="stSelectbox"] div[data-baseweb="select"] span {
+    color: #e8dfc8 !important;
+    font-family: 'Crimson Text', serif !important;
+    font-size: 16px !important;
+}
+[data-testid="stSelectbox"] div[data-baseweb="select"] svg {
+    fill: #b8aa8a !important;
+}
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within {
+    border-color: #c9a84c !important;
+    box-shadow: 0 0 0 1px #c9a84c44 !important;
+}
+
+/* Selectbox dropdown menu */
+ul[data-baseweb="menu"] {
+    background-color: #1e1b12 !important;
+    border: 1px solid #4a3f25 !important;
+    border-radius: 4px !important;
+}
+li[data-baseweb="option"] {
+    background-color: #1e1b12 !important;
+    color: #ddd3b8 !important;
+    font-family: 'Crimson Text', serif !important;
+    font-size: 16px !important;
+}
+li[data-baseweb="option"]:hover {
+    background-color: #2a2510 !important;
+    color: #c9a84c !important;
+}
+li[data-baseweb="option"][aria-selected="true"] {
+    background-color: #2a2510 !important;
+    color: #c9a84c !important;
+}
+
+/* ── All placeholder text ── */
+input::placeholder,
+textarea::placeholder {
+    color: rgb(221, 211, 184) !important;
+    font-style: italic;
+}
+
+/* ── Radio buttons ── */
+/* Fill color is handled by primaryColor in .streamlit/config.toml */
+[data-testid="stRadio"] label {
+    color: #b8aa8a !important;
+    font-family: 'Crimson Text', serif !important;
+    font-size: 15px !important;
+}
+[data-testid="stRadio"] label:hover {
+    color: #ddd3b8 !important;
+}
+
+/* ── Multiselect ── */
+[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
+    background-color: #1e1b12 !important;
+    border: 1px solid #4a3f25 !important;
+    border-radius: 4px !important;
+}
+[data-testid="stMultiSelect"] div[data-baseweb="select"] > div:focus-within {
+    border-color: #c9a84c !important;
+    box-shadow: 0 0 0 1px #c9a84c44 !important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+    background-color: #2e2510 !important;
+    color: #c9a84c !important;
+    border: 1px solid #4a3f25 !important;
+    font-family: 'Crimson Text', serif !important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] span {
+    color: #c9a84c !important;
+}
+[data-testid="stMultiSelect"] input {
+    color: #e8dfc8 !important;
+    font-family: 'Crimson Text', serif !important;
+}
+
+/* ── Secondary / tertiary buttons ── */
+[data-testid="stButton"] button[kind="secondary"],
+[data-testid="stButton"] button[kind="tertiary"] {
+    background-color: transparent !important;
+    border: 1px solid #4a3f25 !important;
+    color: #b8aa8a !important;
+    font-family: 'Crimson Text', serif !important;
+    font-size: 15px !important;
+    border-radius: 3px !important;
+}
+[data-testid="stButton"] button[kind="secondary"]:hover,
+[data-testid="stButton"] button[kind="tertiary"]:hover {
+    border-color: #c9a84c !important;
+    color: #c9a84c !important;
+    background-color: #1e1b10 !important;
+}
+
+/* ── Sliders ── */
+[data-testid="stSlider"] div[role="slider"] {
+    background-color: #c9a84c !important;
+    border-color: #c9a84c !important;
+}
+[data-testid="stSlider"] div[data-testid="stSliderTrack"] > div:first-child {
+    background-color: #3a3120 !important;
+}
+[data-testid="stSlider"] div[data-testid="stSliderTrack"] > div:nth-child(2) {
+    background-color: #c9a84c !important;
+}
+[data-testid="stSlider"] label,
+[data-testid="stSlider"] p {
+    color: #b8aa8a !important;
+    font-family: 'Crimson Text', serif !important;
+}
+
+/* ── Number / text inputs (non-search) ── */
+[data-testid="stNumberInput"] input,
+[data-testid="stTextInput"]:not([data-search]) input {
+    background-color: #1e1b12 !important;
+    border: 1px solid #4a3f25 !important;
+    color: #e8dfc8 !important;
+    font-family: 'Crimson Text', serif !important;
+    border-radius: 4px !important;
+}
+[data-testid="stNumberInput"] button {
+    background-color: #1e1b12 !important;
+    border-color: #4a3f25 !important;
+    color: #b8aa8a !important;
 }
 </style>
 """

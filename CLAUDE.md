@@ -11,17 +11,17 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 
 ---
 
-## Current state (as of 2026-05-27) — Phases 1–3 complete + VPS deployed
+## Current state (as of 2026-05-28) — Phases 1–3 complete + VPS deployed
 
 ### What is fully working
 - Google Docs API sync (tabs-based — each tab = one chapter)
-- Full manuscript indexed: 9 chapters, 92 chunks
-- Continuity docs indexed: 9 files, 5,655 chunks (~5,747 total)
+- Full manuscript indexed: 11 chapters, 125 chunks
+- Continuity docs indexed: 8 of 10 files, ~3,829 chunks (2 PDFs still failing — see Known issues)
 - Semantic search via ChromaDB + OpenAI `text-embedding-3-small`
-- spaCy entity extraction (characters, places) + known-entity override list in `config.yaml`
+- spaCy entity extraction with canonicalization: `known_*` lists in `config.yaml` are ground truth and override spaCy labels; includes `entity_blocklist` for junk tokens
 - SQLite metadata store with 5 tables: `chapters`, `entities`, `timeline_events`, `character_cooccurrences`, `narrative_states`
 - Streamlit multi-page UI: Search page + Story Health dashboard
-- Dark fantasy theme (Cinzel/Crimson Text fonts, gold/charcoal palette) — shared via `ui/theme.py`
+- Dark fantasy theme (Cinzel/Crimson Text fonts, gold/charcoal palette) — shared via `ui/theme.py`; widget styling (selects, radios, multiselects) via `.streamlit/config.toml` + CSS
 - FastAPI `/ask` endpoint with citation keys (`[C{n}-P{n}]`) for Custom GPT
 - Custom GPT system prompt + author setup guide
 - IONOS VPS running 24/7 at `novel.talos-advisory.com` (Cloudflare proxied, HTTPS)
@@ -38,11 +38,13 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - Timeline events table with sequence hints and gap detection
 - Character co-occurrence table (which characters appear in the same chunk)
 - Narrative state snapshots: per-character, per-chapter cumulative view (populated on next reindex)
-- Story Health dashboard: metric cards, stacked character appearances chart (Plotly), styled chapter overview table
+- Story Health dashboard: character appearances, character arcs table (with sort/filter controls), co-occurrence heatmap, place density, timeline strip, entity composition, chapter overview
+- All Story Health queries filtered to manuscript chapters only (`slug LIKE 'ch%'`)
 - `known_lore` list in `config.yaml` catches world-specific common words used as proper nouns (e.g. "Working", "Workings", "Myth")
+- `ingest_documents.py` processes each file in an isolated subprocess — prevents memory accumulation across files on the 1GB VPS
 
 ### What is NOT yet done
-- Continuity doc ingestion may need re-run when author locates more old files
+- **Two PDF continuity docs still not indexed:** `Ven Harrowgate Mission Blacked War pt 2.pdf` and `Ven The Blackened War pt 1.pdf` — pdfplumber uses ~478MB RAM per file, which exceeds available headroom. Fix: replace `read_pdf()` in `src/processing/doc_reader.py` to use PyMuPDF (`fitz`) instead of pdfplumber. Install: `sudo -u novel /opt/inherited-cloud/.venv/bin/pip install pymupdf`, then update the function, push, and reindex.
 - Phase 4: Lore wiki (`wiki_entries` table, `wiki_builder.py`, `2_Lore_Wiki.py` page)
 - Narrative states table is empty until the next full reindex populates it
 
@@ -52,6 +54,8 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - Background Bash tasks in Claude Code are slow to flush output — use `run_in_background=true` and wait for task-notification rather than polling
 - After adding new `known_characters`, `known_places`, `known_orgs`, or `known_lore` entries to `config.yaml`, a full reindex is needed to pick them up across existing chunks
 - When pushing code changes to the VPS, copy updated files via `scp` and restart the affected service (`systemctl restart novel-api` or `novel-ui`)
+- **Full reindex on the VPS requires stopping services first** — the VPS has 826MB usable RAM; running a reindex with services up causes OOM kills. Always `systemctl stop novel-ui novel-api` before reindexing, then `systemctl start` after. See the reindex procedure below.
+- **Never run `full_reindex.py` and `ingest_documents.py` simultaneously** — they will OOM the server. Always wait for the first to finish before starting the second.
 
 ---
 
@@ -177,13 +181,26 @@ python scripts/ingest_documents.py
 ```
 Unchanged files are skipped automatically. Use `--reindex-all` to force full rebuild.
 
-### Force full manuscript reindex
+### Force full reindex on the VPS (preferred — server runs 24/7)
+**Always stop services first.** The VPS has 826MB RAM — reindexing with services up will OOM.
+```bash
+ssh root@216.250.112.169
+systemctl stop novel-ui novel-api
+cd /opt/inherited-cloud
+sudo -u novel .venv/bin/python scripts/full_reindex.py --yes
+sudo -u novel .venv/bin/python scripts/ingest_documents.py --reindex-all
+systemctl start novel-ui novel-api
+```
+Wait for `full_reindex.py` to fully exit before starting `ingest_documents.py`. The site will be down during this (~15–20 minutes). 
+
+**Note:** `full_reindex.py` wipes the entire ChromaDB collection (manuscript + continuity). You must follow it with `ingest_documents.py --reindex-all` or the continuity docs will be missing.
+
+### Force full manuscript reindex (local machine)
 ```
 .venv\Scripts\activate
 python scripts/full_reindex.py --yes
 python scripts/ingest_documents.py --reindex-all
 ```
-**Note:** `full_reindex.py` wipes the entire ChromaDB collection (manuscript + continuity). You must follow it with `ingest_documents.py --reindex-all` or the continuity docs (~5,700 chunks) will be missing. The re-ingest takes ~8 minutes due to large PDF/DOCX files.
 
 ### Test retrieval from CLI
 ```
@@ -227,6 +244,7 @@ Subtypes (`doc_subtype`): `handoff`, `transcript`, `story`, `worldbuilding`, `un
 ## VPS / Custom GPT
 
 - **VPS:** IONOS VPS XS — IP `216.250.112.169`
+- **Hardware:** 1 vCore, 826MB usable RAM, 10GB NVMe SSD, **1GB swap** at `/swapfile` (added 2026-05-28)
 - **Domain:** `novel.talos-advisory.com` (Cloudflare proxied, HTTPS)
 - **API base URL:** `https://novel.talos-advisory.com/api`
 - **OpenAPI schema URL:** `https://novel.talos-advisory.com/api/openapi.json`

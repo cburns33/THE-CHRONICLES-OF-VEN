@@ -156,11 +156,48 @@ def ingest_file(path: Path, cfg: dict, doc_index: int) -> int:
     return len(chunks)
 
 
+def _run_single_file(path: Path, doc_index: int) -> int:
+    """Spawn a fresh subprocess to ingest one file and return chunk count.
+
+    Each file gets its own Python interpreter so memory (spaCy, ChromaDB,
+    text buffers) is fully released by the OS when the process exits. This
+    prevents memory from accumulating across files on constrained hardware.
+    """
+    import subprocess
+    result = subprocess.run(
+        [sys.executable, __file__, "--_single-file", str(path), "--_doc-index", str(doc_index)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        log.error(f"Subprocess failed for '{path.name}':\n{result.stderr}")
+        return 0
+    # Last line of stdout is the chunk count written by the subprocess
+    lines = result.stdout.strip().splitlines()
+    for line in reversed(lines):
+        if line.startswith("CHUNKS:"):
+            return int(line.split(":")[1])
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--reindex-all", action="store_true", help="Force re-ingest all files")
+    # Internal flags used by subprocess calls — not intended for direct use
+    parser.add_argument("--_single-file", dest="single_file", help=argparse.SUPPRESS)
+    parser.add_argument("--_doc-index", dest="doc_index", type=int, default=0,
+                        help=argparse.SUPPRESS)
     args = parser.parse_args()
 
+    # ── Single-file mode (called by _run_single_file) ─────────────────────────
+    if args.single_file:
+        cfg = load_config()
+        path = Path(args.single_file)
+        added = ingest_file(path, cfg, args.doc_index)
+        print(f"CHUNKS:{added}")
+        return
+
+    # ── Normal orchestration mode ──────────────────────────────────────────────
     cfg = load_config()
 
     if not _DOCS_DIR.exists():
@@ -190,7 +227,7 @@ def main():
             continue
 
         print(f"  [index] {path.name}...")
-        added = ingest_file(path, cfg, i)
+        added = _run_single_file(path, i)
         total_chunks += added
         processed += 1
 

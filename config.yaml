@@ -66,6 +66,8 @@ entities:
   # World-specific common words used as proper nouns (spaCy and the ALL-CAPS
   # lore extractor both miss these because they look like ordinary English)
   known_lore:       ["Working", "Workings"]
+  # Tokens that should never be stored as entities regardless of what spaCy tags
+  entity_blocklist: ["n't", "n'T", "'s", "'t", "the", "a", "an"]
 
 api:
   host: "0.0.0.0"

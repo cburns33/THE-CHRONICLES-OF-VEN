@@ -151,11 +151,13 @@ def delete_chapter(slug: str) -> None:
     log.info(f"Deleted chapter '{slug}' from SQLite")
 
 
-def get_all_chapters() -> list[dict]:
+def get_all_chapters(manuscript_only: bool = False) -> list[dict]:
     with _conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM chapters ORDER BY chapter_idx"
-        ).fetchall()
+        sql = "SELECT * FROM chapters"
+        if manuscript_only:
+            sql += " WHERE slug LIKE 'ch%'"
+        sql += " ORDER BY chapter_idx"
+        rows = conn.execute(sql).fetchall()
         return [dict(r) for r in rows]
 
 
@@ -262,7 +264,7 @@ def delete_timeline_for_chapter(chapter_slug: str) -> None:
 
 
 def get_full_timeline() -> list[dict]:
-    """Return all timeline events sorted by sequence_hint (NULLs last), then chapter."""
+    """Return manuscript timeline events sorted by sequence_hint (NULLs last), then chapter."""
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -270,6 +272,7 @@ def get_full_timeline() -> list[dict]:
                    t.chapter_idx, t.chunk_index, c.title AS chapter_title
             FROM timeline_events t
             JOIN chapters c ON c.slug = t.chapter_slug
+            WHERE t.chapter_slug LIKE 'ch%'
             ORDER BY t.sequence_hint ASC NULLS LAST, t.chapter_idx, t.chunk_index
             """
         ).fetchall()
@@ -339,13 +342,14 @@ def get_cooccurrences_for_entity(entity_text: str) -> list[dict]:
 
 
 def get_relationship_summary() -> list[dict]:
-    """Return all co-occurring pairs with total co-occurrence count, sorted by frequency."""
+    """Return co-occurring pairs from manuscript chapters only, sorted by frequency."""
     with _conn() as conn:
         rows = conn.execute(
             """
             SELECT entity_a, entity_b, COUNT(*) AS count,
                    COUNT(DISTINCT chapter_slug) AS chapter_count
             FROM character_cooccurrences
+            WHERE chapter_slug LIKE 'ch%'
             GROUP BY entity_a, entity_b
             ORDER BY count DESC
             """
@@ -436,7 +440,7 @@ def get_all_narrative_states_for_entity(entity_text: str) -> list[dict]:
 
 
 def get_entity_appearances_by_chapter() -> list[dict]:
-    """Return PERSON entity appearance counts per chapter, for the character bar chart."""
+    """Return PERSON entity appearance counts per manuscript chapter, for the character bar chart."""
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -445,6 +449,7 @@ def get_entity_appearances_by_chapter() -> list[dict]:
             FROM entities e
             JOIN chapters c ON c.slug = e.chapter_slug
             WHERE e.entity_type = 'PERSON'
+              AND c.slug LIKE 'ch%'
             GROUP BY e.entity_text, c.chapter_idx
             ORDER BY c.chapter_idx, count DESC
             """
@@ -479,3 +484,62 @@ def log_sync(chapters_changed: int, chunks_added: int, chunks_deleted: int) -> N
             """,
             (chapters_changed, chunks_added, chunks_deleted),
         )
+
+
+def get_character_arc_summary() -> list[dict]:
+    """Return first/last appearance chapter and total counts per named character.
+
+    Restricted to manuscript chapters only (slug prefix 'ch'), excluding continuity docs.
+    """
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.entity_text,
+                   MIN(c.chapter_idx) AS first_chapter,
+                   MAX(c.chapter_idx) AS last_chapter,
+                   COUNT(DISTINCT c.chapter_idx) AS chapters_present,
+                   COUNT(*) AS total_appearances
+            FROM entities e
+            JOIN chapters c ON c.slug = e.chapter_slug
+            WHERE e.entity_type = 'PERSON'
+              AND c.slug LIKE 'ch%'
+            GROUP BY e.entity_text
+            ORDER BY total_appearances DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_place_appearances_by_chapter() -> list[dict]:
+    """Return PLACE entity appearance counts per manuscript chapter."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.entity_text, c.chapter_idx, c.title AS chapter_title,
+                   COUNT(*) AS count
+            FROM entities e
+            JOIN chapters c ON c.slug = e.chapter_slug
+            WHERE e.entity_type = 'PLACE'
+              AND c.slug LIKE 'ch%'
+            GROUP BY e.entity_text, c.chapter_idx
+            ORDER BY c.chapter_idx, count DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_entity_type_breakdown_by_chapter() -> list[dict]:
+    """Return entity counts grouped by manuscript chapter and entity_type."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.chapter_idx, c.title AS chapter_title,
+                   e.entity_type, COUNT(*) AS count
+            FROM entities e
+            JOIN chapters c ON c.slug = e.chapter_slug
+            WHERE c.slug LIKE 'ch%'
+            GROUP BY c.chapter_idx, e.entity_type
+            ORDER BY c.chapter_idx, e.entity_type
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]

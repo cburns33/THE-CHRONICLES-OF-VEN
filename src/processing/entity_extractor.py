@@ -45,11 +45,19 @@ def _load_model() -> Language:
         )
 
 
+def _is_valid_entity(name: str) -> bool:
+    """Reject tokens that are clearly not meaningful entity names."""
+    return len(name) >= 2 and any(c.isalpha() for c in name)
+
+
 def extract_entities(text: str) -> dict[str, list[str]]:
     """Return {label: [entity_text, ...]} for PERSON, PLACE, ORG.
 
     Known fantasy names from config.yaml are checked first so spaCy misses
     don't produce gaps for the main characters and locations.
+
+    Known characters are excluded from PLACE/ORG results so spaCy misclassifications
+    (e.g. tagging the protagonist as a GPE) don't pollute the place index.
     """
     cfg = load_config()
     entity_cfg = cfg.get("entities", {})
@@ -57,6 +65,8 @@ def extract_entities(text: str) -> dict[str, list[str]]:
     known_places = entity_cfg.get("known_places", [])
     known_orgs   = entity_cfg.get("known_orgs", [])
     known_lore   = entity_cfg.get("known_lore", [])
+    blocklist    = {t.lower() for t in entity_cfg.get("entity_blocklist", [])}
+    char_lower   = {n.lower() for n in known_chars}
 
     nlp = _load_model()
     doc = nlp(text[:10_000])
@@ -64,10 +74,17 @@ def extract_entities(text: str) -> dict[str, list[str]]:
 
     for ent in doc.ents:
         name = ent.text.strip()
+        if not _is_valid_entity(name):
+            continue
+        if name.lower() in blocklist:
+            continue
         if ent.label_ == "PERSON":
             result["PERSON"].append(name)
         elif ent.label_ in ("GPE", "LOC"):
-            result["PLACE"].append(name)
+            # Exclude tokens that are known characters — spaCy sometimes tags
+            # character names as place names in fantasy text
+            if name.lower() not in char_lower:
+                result["PLACE"].append(name)
         elif ent.label_ == "ORG":
             result["ORG"].append(name)
 
@@ -96,6 +113,25 @@ def extract_entities(text: str) -> dict[str, list[str]]:
                 seen.add(name.lower())
                 unique.append(name)
         deduped[label] = unique
+
+    # Canonicalize: known_* lists are ground truth. Any entity that spaCy placed
+    # in the wrong bucket gets evicted. The injection above already put it in the
+    # right bucket, so this is purely a removal pass.
+    canonical: dict[str, str] = {}
+    for name in known_chars:
+        canonical[name.lower()] = "PERSON"
+    for name in known_places:
+        canonical[name.lower()] = "PLACE"
+    for name in known_orgs:
+        canonical[name.lower()] = "ORG"
+    for term in known_lore:
+        canonical[term.lower()] = "LORE"
+
+    for label in list(deduped.keys()):
+        deduped[label] = [
+            n for n in deduped[label]
+            if canonical.get(n.lower(), label) == label
+        ]
 
     return deduped
 
