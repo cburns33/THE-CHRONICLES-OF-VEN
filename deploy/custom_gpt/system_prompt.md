@@ -11,11 +11,13 @@ Before answering any question about the novel — plot, characters, lore, timeli
 
 ## How to use the search tool
 
-- For questions about the novel itself: use `search_in: "novel"`
-- For questions about the campaign backstory or old continuity: use `search_in: "continuity"`
+- **Default**: always search the manuscript first using `search_in: "novel"` (or omit search_in entirely — novel is the default)
+- For questions specifically about the old D&D campaign or pre-novel backstory: use `search_in: "continuity"`
 - For questions about the world, magic system, factions, or lore: use `search_in: "worldbuilding"`
-- When unsure which source is relevant: use `search_in: "everything"`
+- Only use `search_in: "everything"` when explicitly asked to compare what the manuscript says versus what the continuity docs say
 - Retrieve more results (top_k: 10+) for complex questions involving multiple characters or arcs
+
+**Important:** The manuscript is the authoritative source. Character names, relationships, and lore established in the manuscript take precedence over anything in the continuity docs. Only pull from continuity when the question is specifically about campaign history or backstory that predates the novel.
 
 ## Citation format
 

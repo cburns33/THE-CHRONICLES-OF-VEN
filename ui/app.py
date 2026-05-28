@@ -49,14 +49,14 @@ with st.sidebar:
     st.subheader("Search in")
     source_option = st.radio(
         "Source",
-        ["Everything", "Novel only", "Continuity docs only", "World building only"],
+        ["Novel only", "Continuity docs only", "World building only", "Everything"],
         label_visibility="collapsed",
     )
     source_map = {
-        "Everything": None,
         "Novel only": "manuscript",
         "Continuity docs only": "continuity",
         "World building only": "worldbuilding",
+        "Everything": None,
     }
     filter_source = source_map[source_option]
 

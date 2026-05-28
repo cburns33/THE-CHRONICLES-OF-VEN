@@ -61,17 +61,17 @@ def read_docx(path: Path) -> str:
 
 
 def read_pdf(path: Path) -> str:
-    """Extract text from a PDF file page by page."""
+    """Extract text from a PDF file page by page using PyMuPDF."""
     try:
-        import pdfplumber
+        import fitz  # PyMuPDF
     except ImportError:
-        raise ImportError("pdfplumber not installed. Run: pip install pdfplumber")
+        raise ImportError("PyMuPDF not installed. Run: pip install pymupdf")
 
     pages = []
-    with pdfplumber.open(str(path)) as pdf:
-        for i, page in enumerate(pdf.pages):
-            text = page.extract_text()
-            if text:
+    with fitz.open(str(path)) as pdf:
+        for page in pdf:
+            text = page.get_text()
+            if text and text.strip():
                 pages.append(text.strip())
 
     result = _clean_text("\n\n".join(pages))

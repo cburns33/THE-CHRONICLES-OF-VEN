@@ -116,12 +116,33 @@ hr {
     border-color: #3a3120 !important;
 }
 
-/* ── Hide Streamlit chrome (toolbar, header, footer) ── */
-[data-testid="stToolbar"],
-[data-testid="stHeader"],
+/* ── Hide Streamlit chrome ── */
+/* Hide the header only when there is no sidebar expand button inside it.
+   When the sidebar is open the expand button doesn't exist, so the header
+   vanishes (clean look). When the sidebar is collapsed the expand button
+   appears, so the header becomes visible and the user can reopen the sidebar.
+   This works on both desktop and mobile without any media queries. */
+[data-testid="stHeader"]:not(:has([data-testid="stExpandSidebarButton"])) {
+    display: none !important;
+}
+/* When the header IS visible (sidebar collapsed), style it to match the theme */
+[data-testid="stHeader"]:has([data-testid="stExpandSidebarButton"]) {
+    background: #0f0e09 !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid #3a3120 !important;
+}
+/* Hide unwanted toolbar items on all viewports */
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"],
+[data-testid="stToolbarActions"],
+[data-testid="stStatusWidget"],
 [data-testid="stDecoration"],
 footer {
     display: none !important;
+}
+/* Style the expand button to match the gold theme */
+[data-testid="stExpandSidebarButton"] button {
+    color: #c9a84c !important;
 }
 
 /* ── General text ── */

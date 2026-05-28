@@ -61,10 +61,10 @@ class AskRequest(BaseModel):
         examples=["Where was the Silver Oath first mentioned?", "What does Ven know about the Magelord?"],
     )
     search_in: str = Field(
-        default="everything",
-        description="Where to search: 'everything', 'novel', 'continuity', or 'worldbuilding'.",
+        default="novel",
+        description="Where to search: 'novel' (default, manuscript only), 'continuity' (campaign backstory docs), 'worldbuilding', or 'everything' (all sources).",
     )
-    top_k: int = Field(default=6, ge=1, le=20, description="Number of passages to return.")
+    top_k: int = Field(default=8, ge=1, le=20, description="Number of passages to return.")
 
 
 class AskResponse(BaseModel):

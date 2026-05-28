@@ -44,11 +44,11 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - `ingest_documents.py` processes each file in an isolated subprocess — prevents memory accumulation across files on the 1GB VPS
 
 ### What is NOT yet done
-- **Two PDF continuity docs still not indexed:** `Ven Harrowgate Mission Blacked War pt 2.pdf` and `Ven The Blackened War pt 1.pdf` — pdfplumber uses ~478MB RAM per file, which exceeds available headroom. Fix: replace `read_pdf()` in `src/processing/doc_reader.py` to use PyMuPDF (`fitz`) instead of pdfplumber. Install: `sudo -u novel /opt/inherited-cloud/.venv/bin/pip install pymupdf`, then update the function, push, and reindex.
 - Phase 4: Lore wiki (`wiki_entries` table, `wiki_builder.py`, `2_Lore_Wiki.py` page)
 - Narrative states table is empty until the next full reindex populates it
 
 ### Known issues / gotchas
+- PDF reading uses PyMuPDF (`fitz`), not pdfplumber — pdfplumber used ~478MB RAM per file and crashed the VPS. PyMuPDF is installed in the venv; do not revert.
 - `Ven Transcript Part 6.docx` was empty — skipped at ingestion, not a bug
 - Windows terminal (cp1252) cannot print some Unicode from the manuscript — fixed in `scripts/query.py` but raw `python -c` one-liners will still fail; use the scripts
 - Background Bash tasks in Claude Code are slow to flush output — use `run_in_background=true` and wait for task-notification rather than polling
