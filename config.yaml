@@ -11,6 +11,8 @@ google_docs:
   burst_interval_seconds: 1800       # 30 minutes
   # How long to stay in burst mode after detecting a change (seconds)
   burst_duration_seconds: 10800      # 3 hours
+  # Tab titles to skip entirely during indexing (case-sensitive match)
+  excluded_tabs: ["notes", "Notes"]
 
 chunking:
   # Target chunk size in tokens
@@ -60,14 +62,128 @@ paths:
 
 entities:
   # Known fantasy proper nouns spaCy misses — checked before NER runs
-  known_characters: ["Ven", "Rho", "Thorn", "Boc", "Aveline", "Griss", "Thorne"]
-  known_places:     ["Bellwarren", "Harrowgate", "Stalgrad", "Ulun", "Voon"]
-  known_orgs:       ["Silver Oath", "Ashwing", "Myth"]
+  known_characters:
+    - "Ven"
+    - "Rho"
+    - "Thorn"
+    - "Boc"
+    - "Aveline"
+    - "Griss"
+    - "Thorne"
+    - "Elspeth"
+    - "Oren"
+    - "Ingward"
+    - "Mara"
+    - "Ruck"
+    - "Brent"
+    - "Hatha"
+    - "Finnick"
+    - "Uld"
+    - "Selwyn"
+    - "Tomas"
+    - "Calt"
+    - "Lucan"
+    - "Declan"
+    - "Dorr"
+    - "Gustav"
+    - "Elvine"
+    - "Marr"
+    - "Muriel"
+    - "Pellan"
+    - "Ashwyn"
+    - "Johan"
+    - "Velmire"
+    - "Korrin"
+    - "Langrel"
+    - "Tenna"
+    - "Harlowe"
+    - "Ed"
+    - "Lora"
+    - "Roe"
+    - "Gregory"
+    - "Cassian"
+    - "Bjorngensberger"
+    - "Pircella"
+    - "Ned"
+    - "Tod"
+    - "Kirke"
+    - "Bellor"
+  known_places:
+    - "Bellwarren"
+    - "Harrowgate"
+    - "Stalgrad"
+    - "Ulun"
+    - "Voon"
+    - "Stalgrad Hold"
+    - "Orchid Hall"
+    - "Greywater Crossing"
+    - "Telmere"
+    - "Alder Valley"
+    - "Tristic"
+    - "Tower Stalgrad"
+    - "The Black Alder"
+    - "Northern Riverlands"
+    - "Pitland"
+    - "Valkan Sea"
+    - "Edrayne"
+    - "Telmere Breakwater"
+    - "Greywater Town"
+    - "Fairbank"
+  known_orgs:
+    - "Silver Oath"
+    - "Ashwing"
+    - "Myth"
+    - "Green House"
+    - "Red House"
+    - "Ward Knight Corps"
+    - "House Stalgrad"
+    - "House Harlowe"
+    - "House Calt"
+    - "House Marr"
+    - "House Velmire"
+    - "Vossmere"
+    - "Merg"
+    - "House Edrayne"
   # World-specific common words used as proper nouns (spaCy and the ALL-CAPS
   # lore extractor both miss these because they look like ordinary English)
-  known_lore:       ["Working", "Workings"]
+  known_lore:
+    - "Working"
+    - "Workings"
+    - "Working Sight"
+    - "Greater Working"
+    - "Valk"
+    - "Valkan"
+    - "Silfric"
+    - "Silfra"
+    - "Uldic"
+    - "Ghostflame"
+    - "Ghostflames"
+    - "Rusalka"
+    - "the Old Ways"
+    - "Cian's Spark"
+    - "Stally"
+    - "Saint Tressa"
+    - "Calor"
+    - "Mergrel"
+    - "Uld Oaths"
+    - "Valkling"
+    - "Valklings"
+    - "Dragonkiller"
+    - "Dragonkillers"
+    - "Spell-Blade"
   # Tokens that should never be stored as entities regardless of what spaCy tags
-  entity_blocklist: ["n't", "n'T", "'s", "'t", "the", "a", "an"]
+  entity_blocklist:
+    - "n’t"
+    - "n’T"
+    - "n’t"
+    - "'s"
+    - "'t"
+    - "the"
+    - "a"
+    - "an"
+  # Chapter slugs to skip entity extraction for (e.g. in-world documents with
+  # ALL-CAPS formatting that floods the LORE extractor with garbage tokens)
+  entity_extraction_excluded_slugs: ["ch02"]
 
 api:
   host: "0.0.0.0"

@@ -78,6 +78,20 @@ def delete_by_chapter(chapter_slug: str) -> int:
     return len(ids)
 
 
+def delete_by_source_type(source_type: str) -> int:
+    """Delete all chunks with a given source_type. Returns count deleted."""
+    collection = get_collection()
+    results = collection.get(
+        where={"source_type": source_type},
+        include=[],
+    )
+    ids = results["ids"]
+    if ids:
+        collection.delete(ids=ids)
+        log.info(f"Deleted {len(ids)} '{source_type}' chunks from ChromaDB")
+    return len(ids)
+
+
 def query(
     vector: list[float],
     top_k: int = 8,

@@ -20,6 +20,7 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from src.utils.config import load_config
 from src.utils.hashing import content_hash, chapter_slug
 from src.utils.logging import get_logger
 
@@ -57,11 +58,18 @@ def docs_json_to_chapters(document: dict) -> list[Chapter]:
 
 
 def _chapters_from_tabs(tabs: list[dict]) -> list[Chapter]:
+    cfg = load_config()
+    excluded_tabs = set(cfg.get("google_docs", {}).get("excluded_tabs", []))
+
     chapters = []
     for tab in tabs:
         props = tab.get("tabProperties", {})
         title = props.get("title", f"Chapter {props.get('index', 0)}")
         index = props.get("index", 0)
+
+        if title in excluded_tabs:
+            log.info(f"Skipping excluded tab: '{title}'")
+            continue
 
         # Content lives in documentTab.body.content
         doc_tab = tab.get("documentTab", {})

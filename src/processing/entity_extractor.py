@@ -151,7 +151,14 @@ def extract_cooccurrences(entities: dict[str, list[str]]) -> list[tuple[str, str
 
 def enrich_chunks_with_entities(chunks: list["Chunk"]) -> list["Chunk"]:
     """Add entity metadata and co-occurrence pairs to each chunk in-place."""
+    cfg = load_config()
+    excluded = set(cfg.get("entities", {}).get("entity_extraction_excluded_slugs", []))
+
     for chunk in chunks:
+        if chunk.chapter_slug in excluded:
+            chunk.metadata["entities"] = {"PERSON": [], "PLACE": [], "ORG": [], "LORE": []}
+            chunk.metadata["cooccurrences"] = []
+            continue
         entities = extract_entities(chunk.text)
         chunk.metadata["entities"] = entities
         chunk.metadata["cooccurrences"] = extract_cooccurrences(entities)

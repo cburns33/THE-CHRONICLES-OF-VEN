@@ -55,7 +55,7 @@ A semantic search and retrieval system for a fantasy novel manuscript. The autho
 - After adding new `known_characters`, `known_places`, `known_orgs`, or `known_lore` entries to `config.yaml`, a full reindex is needed to pick them up across existing chunks
 - When pushing code changes to the VPS, copy updated files via `scp` and restart the affected service (`systemctl restart novel-api` or `novel-ui`)
 - **Full reindex on the VPS requires stopping services first** — the VPS has 826MB usable RAM; running a reindex with services up causes OOM kills. Always `systemctl stop novel-ui novel-api` before reindexing, then `systemctl start` after. See the reindex procedure below.
-- **Never run `full_reindex.py` and `ingest_documents.py` simultaneously** — they will OOM the server. Always wait for the first to finish before starting the second.
+- **`full_reindex.py` only clears manuscript chunks** — continuity docs are preserved. Only run `ingest_documents.py --reindex-all` afterward if the embedding model changed.
 
 ---
 
@@ -188,18 +188,16 @@ ssh root@216.250.112.169
 systemctl stop novel-ui novel-api
 cd /opt/inherited-cloud
 sudo -u novel .venv/bin/python scripts/full_reindex.py --yes
-sudo -u novel .venv/bin/python scripts/ingest_documents.py --reindex-all
 systemctl start novel-ui novel-api
 ```
-Wait for `full_reindex.py` to fully exit before starting `ingest_documents.py`. The site will be down during this (~15–20 minutes). 
+The site will be down during this (~5–10 minutes). `full_reindex.py` now only clears manuscript chunks — continuity docs are preserved.
 
-**Note:** `full_reindex.py` wipes the entire ChromaDB collection (manuscript + continuity). You must follow it with `ingest_documents.py --reindex-all` or the continuity docs will be missing.
+**Exception:** If you also changed the embedding model, follow with `ingest_documents.py --reindex-all` before restarting services.
 
 ### Force full manuscript reindex (local machine)
 ```
 .venv\Scripts\activate
 python scripts/full_reindex.py --yes
-python scripts/ingest_documents.py --reindex-all
 ```
 
 ### Test retrieval from CLI

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Force a complete wipe and rebuild of the index.
+Wipe and rebuild the manuscript portion of the index.
+
+Continuity doc chunks (source_type != "manuscript") are preserved, so
+running ingest_documents.py afterward is no longer needed after a
+routine manuscript reindex.
 
 Use this when:
-  - You change embedding models
+  - You change embedding models (follow with ingest_documents.py --reindex-all)
   - The index gets corrupted
   - You want a clean slate after major manuscript restructuring
 
@@ -28,7 +32,7 @@ from src.processing.chunker import chunk_all_chapters
 from src.processing.metadata_extractor import enrich_chunks
 from src.processing.entity_extractor import enrich_chunks_with_entities
 from src.indexing.embedder import embed_chunks
-from src.indexing.vector_store import upsert_chunks, collection_stats, _get_client, COLLECTION_NAME
+from src.indexing.vector_store import upsert_chunks, collection_stats, delete_by_source_type
 from src.indexing.sqlite_store import (
     init_db,
     upsert_chapter,
@@ -58,16 +62,12 @@ def main():
 
     doc_id = cfg["google_docs"]["document_id"]
 
-    # Wipe ChromaDB — delete the collection via the client API to avoid
-    # filesystem lock issues (OneDrive or antivirus may hold file handles)
+    # Remove only manuscript chunks — continuity docs stay intact
     try:
-        client = _get_client()
-        existing = [c.name for c in client.list_collections()]
-        if COLLECTION_NAME in existing:
-            client.delete_collection(COLLECTION_NAME)
-            log.info(f"Deleted ChromaDB collection '{COLLECTION_NAME}'")
+        deleted = delete_by_source_type("manuscript")
+        log.info(f"Cleared {deleted} manuscript chunks from ChromaDB")
     except Exception as e:
-        log.warning(f"Could not delete ChromaDB collection: {e}")
+        log.warning(f"Could not clear manuscript chunks: {e}")
 
     # Wipe SQLite
     db_path = Path(cfg["paths"]["db_path"])
